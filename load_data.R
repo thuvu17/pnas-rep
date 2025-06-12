@@ -13,7 +13,7 @@ pbmc_8k <- Read10X((data.dir = "data/pbmc_8k/"))
 rownames(gdt_df) <- gdt_df$V1  # Set gene names as rownames
 gdt_df_no_gene_col <- gdt_df[,-1, with = FALSE]
 
-# Create Seurat objects
+# Create Seurat pbmc_4kects
 pbmc_4k <- CreateSeuratObject(counts = pbmc_4k, project = "pbmc_4k", min.cells = 3, min.features = 200)
 pbmc_8k <- CreateSeuratObject(counts = pbmc_8k, project = "pbmc_8k", min.cells = 3, min.features = 200)
 gdt <- CreateSeuratObject(counts = as.matrix(gdt_df_no_gene_col), project = "gdt", min.cells = 3, min.features = 200)
@@ -33,11 +33,34 @@ pbmc_4k$subtype <- "NA"
 pbmc_8k$subtype <- "NA"
 
 gdt_donor1 <- subset(gdt, subset = orig.ident == "donor1")
-gdt_donor2 <- subset(gdt, subset = orig.ident == "donor2")
-gdt_donor3 <- subset(gdt, subset = orig.ident == "donor3")
+# gdt_donor2 <- subset(gdt, subset = orig.ident == "donor2")
+# gdt_donor3 <- subset(gdt, subset = orig.ident == "donor3")
 
-gdt_d1 <- subset(gdt, subset = subtype == "d1")
-gdt_d2 <- subset(gdt, subset = subtype == "d2")
+# gdt_d1 <- subset(gdt, subset = subtype == "d1")
+# gdt_d2 <- subset(gdt, subset = subtype == "d2")
+
+# Preprocessing
+pbmc_4k[["percent.mt"]] <- PercentageFeatureSet(pbmc_4k, pattern = "^MT-")
+gene_counts <- LayerData(pbmc_4k[["RNA"]], layer = "counts")
+gene_filter <- Matrix::rowSums(gene_counts > 0) >= 3
+pbmc_4k <- pbmc_4k[gene_filter, ]
+pbmc_4k <- subset(pbmc_4k, subset = nFeature_RNA > 200 & percent.mt >= 0.05)
+
+pbmc_8k[["percent.mt"]] <- PercentageFeatureSet(pbmc_8k, pattern = "^MT-")
+gene_counts <- LayerData(pbmc_8k[["RNA"]], layer = "counts")
+gene_filter <- Matrix::rowSums(gene_counts > 0) >= 3
+pbmc_8k <- pbmc_8k[gene_filter, ]
+pbmc_8k <- subset(pbmc_8k, subset = nFeature_RNA > 200 & percent.mt >= 0.05)
+
+gdt_donor1[["percent.mt"]] <- PercentageFeatureSet(gdt_donor1, pattern = "^MT-")
+gene_counts <- LayerData(gdt_donor1[["RNA"]], layer = "counts")
+gene_filter <- Matrix::rowSums(gene_counts > 0) >= 3
+gdt_donor1 <- gdt_donor1[gene_filter, ]
+gdt_donor1 <- subset(gdt_donor1, subset = nFeature_RNA > 200 & percent.mt >= 0.05)
+
+pbmc_4k <- RenameCells(pbmc_4k, new.names = paste0("pbmc4k_", colnames(pbmc_4k)))
+pbmc_8k <- RenameCells(pbmc_8k, new.names = paste0("pbmc8k_", colnames(pbmc_8k)))
+
 
 # ======================================
 # Generate tSNE plots before integration
