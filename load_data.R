@@ -61,10 +61,25 @@ gdt_donor1 <- subset(gdt_donor1, subset = nFeature_RNA > 200 & percent.mt >= 0.0
 pbmc_4k <- RenameCells(pbmc_4k, new.names = paste0("pbmc4k_", colnames(pbmc_4k)))
 pbmc_8k <- RenameCells(pbmc_8k, new.names = paste0("pbmc8k_", colnames(pbmc_8k)))
 
+# Add CD4 zeros to gdt_donor1
+counts <- GetAssayData(gdt_donor1, assay = "RNA", slot = "counts")
+# If CD4 missing, add it
+if (!("CD4" %in% rownames(counts))) {
+  # Create zero vector for CD4 across all cells
+  zero_row <- Matrix::sparseMatrix(i = NULL, j = NULL, dims = c(1, ncol(counts)))
+  rownames(zero_row) <- "CD4"
+  
+  # Add row to count matrix
+  counts <- rbind(counts, zero_row)
+  
+  # Write back to object
+  gdt_donor1[["RNA"]] <- CreateAssayObject(counts = counts)
+}
+
 
 # ======================================
 # Generate tSNE plots before integration
-merged_unintegrated <- merge(x=gdt, y=list(pbmc_4k, pbmc_8k))
+merged_unintegrated <- merge(x=gdt_donor1, y=list(pbmc_4k, pbmc_8k))
 Layers(merged_unintegrated[["RNA"]])
 
 # Run standard analysis workflow
@@ -76,6 +91,6 @@ merged_unintegrated <- FindNeighbors(merged_unintegrated, dims = 1:30, reduction
 merged_unintegrated <- FindClusters(merged_unintegrated, resolution = 2, cluster.name = "unintegrated_clusters")
 
 # Visualization
-merged_unintegrated <- RunTSNE(merged_unintegrated, dims = 1:30, reduction = "pca", reduction.name = "tsne.unintegrated")
+merged_unintegrated <- RunTSNE(merged_unintegrated, dims = 1:30, reduction = "pca")
 tsne_plot_unintegrated <- DimPlot(merged_unintegrated, reduction = "tsne.unintegrated", group.by = "orig.ident", shuffle=TRUE) + ggtitle("tSNE unintegrated")
 tsne_plot_unintegrated
