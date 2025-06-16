@@ -2,24 +2,23 @@
 # that intersect with GDT. Then perform integration again
 
 
+iter_num <- 0
 # Subset PBMC cells overlapping with GDT
 DimPlot(part1.v4, reduction = "tsne", label = TRUE) + NoLegend() +
-  ggtitle("PBMC_13k cluster analysis") +
+  ggtitle("PBMC 13k 2000 + marker genes cluster & Highlight GDT") +
   DimPlot(part1.v4, reduction = "tsne", 
-          cells.highlight = WhichCells(part1.v4, expression = orig.ident == "donor1")) 
-overlap_cluster <- c(1, 2, 3, 5, 6, 7, 8, 11, 12)
-pbmc_4k.subset <- subset(part1.subset, subset = orig.ident == "pbmc4k" 
-                         & seurat_clusters %in% overlap_cluster)
-pbmc_8k.subset <- subset(part1.subset, subset = orig.ident == "pbmc8k" 
-                         & seurat_clusters %in% overlap_cluster)
-pbmc_4k.subset <- CreateSeuratObject(LayerData(part1.v4, assay = "RNA", layer = "counts.pbmc_4k")
-                                     [, colnames(pbmc_4k.subset)], project = "subset_4k")
-pbmc_8k.subset <- CreateSeuratObject(LayerData(part1.v4, assay = "RNA", layer = "counts.pbmc_8k")
-                                     [, colnames(pbmc_8k.subset)], project = "subset_8k")
+          cells.highlight = WhichCells(part1.v4, expression = orig.ident == "donor1"))
 
-marker_genes <- c("CD3E", "CD3D", "TRDC", "TRGC1", "TRGC2", "CD8A", "CD8B")
-marker_genes %in% rownames(pbmc_4k.subset)
-marker_genes %in% rownames(pbmc_8k.subset)
+# Subset pbmc_4k and pbmc_8k cells
+overlap_cluster <- c(1, 2, 4, 6, 7, 9)
+overlap_4k.cells <- WhichCells(part1.v4, expression = orig.ident == "pbmc_4k" & seurat_clusters %in% overlap_cluster)
+overlap_8k.cells <- WhichCells(part1.v4, expression = orig.ident == "pbmc_8k" & seurat_clusters %in% overlap_cluster)
+# Extract counts layer for each
+pbmc_4k.counts <- LayerData(part1.v4, assay = "RNA", layer = "counts.pbmc_4k")[, overlap_4k.cells]
+pbmc_8k.counts <- LayerData(part1.v4, assay = "RNA", layer = "counts.pbmc_8k")[, overlap_8k.cells]
+# Create new Seurat objects
+pbmc_4k.subset <- CreateSeuratObject(pbmc_4k.counts, project = "pbmc_4k")
+pbmc_8k.subset <- CreateSeuratObject(pbmc_8k.counts, project = "pbmc_8k")
 
 # Perform integration with subset pbmc + gdt_donor1
 part1.subset.list <- c(gdt_donor1, pbmc_4k.subset, pbmc_8k.subset)
@@ -36,19 +35,16 @@ subset.features <- unique(c(subset.features, marker_genes))
 subset.anchors <- FindIntegrationAnchors(part1.subset.list, anchor.features = subset.features)
 part1.subset <- IntegrateData(subset.anchors)
 
-# Check if all marker genes are present
-marker_genes %in% rownames(part1.subset)
-
-
 DefaultAssay(part1.subset) <- "integrated"
 part1.subset <- ScaleData(part1.subset)
 part1.subset <- RunPCA(part1.subset, npcs = 30)
 part1.subset <- RunTSNE(part1.subset, dims = 1:30)
 part1.subset <- FindNeighbors(part1.subset, dims = 1:30)
-part1.subset <- FindClusters(part1.subset, resolution = 1.2)
+part1.subset <- FindClusters(part1.subset, resolution = 0.6)
 
+iter_num <- iter_num + 1
 DimPlot(part1.subset, reduction = "tsne", label = TRUE) + NoLegend() +
-  ggtitle("Iteration 3") + 
+  ggtitle(paste("PBMC 13k 2000 + marker genes & Highlight GDT: Iteration", iter_num)) + 
   DimPlot(
     part1.subset, 
     reduction = "tsne",
